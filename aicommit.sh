@@ -32,16 +32,13 @@ git_aicommit() {
 		--arg model "$model" \
 		--arg prompt "$prompt" \
 		'{model: $model, messages: [{role: "user", content: $prompt}], temperature: 0.2}')
-	echo "$payload"
-	curl -s --max-time 60 "${base_url%/}/chat/completions" \
-		-H "Content-Type: application/json" \
-		-H "Authorization: Bearer $auth_key" \
-		-d "$payload"
 	response=$(curl -s --max-time 60 "${base_url%/}/chat/completions" \
 		-H "Content-Type: application/json" \
 		-H "Authorization: Bearer $auth_key" \
 		-d "$payload")
-
+	echo
+	echo rsp: "$response"
+	echo
 	commit_message=$(echo "$response" | grep -o '"content":"[^"]*"' | sed 's/"content":"//;s/"$//' | head -1)
 
 	if [ -z "$commit_message" ]; then
