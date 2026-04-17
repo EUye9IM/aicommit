@@ -21,12 +21,17 @@ git_aicommit() {
 		return 1
 	fi
 
+	if [ "$(echo "$diff_output" | wc -c)" -gt 10000 ]; then
+		diff_output=$(echo "$diff_output" | cut -c 1-10000)
+		echo "Warning: diff truncated to 10000 bytes"
+	fi
+
 	prompt="根据以下 git diff 输出，用中文生成一个简洁的 git commit message（50 字以内，格式：类型：描述）。类型用 feat/fix/docs/style/refactor/test/chore 之一：\n\n${diff_output}"
 
 	payload=$(jq -n \
 		--arg model "$model" \
 		--arg prompt "$prompt" \
-		'{model: $model, messages: [{role: "user", content: $prompt}], max_tokens: 256, temperature: 0.7}')
+		'{model: $model, messages: [{role: "user", content: $prompt}], temperature: 0.2}')
 	echo "$payload"
 	curl -s --max-time 60 "${base_url%/}/chat/completions" \
 		-H "Content-Type: application/json" \
