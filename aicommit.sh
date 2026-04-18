@@ -50,5 +50,3 @@ git_aicommit() {
 	echo "Generated commit message: $commit_message"
 	git commit -m "$commit_message"
 }
-
-alias aicommit='git_aicommit'
