@@ -34,20 +34,20 @@ fi
 
 prompt="根据以下 git diff 输出，用中文生成一个简洁的 git commit message（格式：类型：描述）。类型用 feat/fix/docs/style/refactor/test/chore 之一：\n\n${diff_output}"
 
-payload=$(jq -n \
+payload=$(jq -n -c \
 	--arg model "$model" \
 	--arg prompt "$prompt" \
 	'{model: $model, messages: [{role: "user", content: $prompt}], temperature: 0.2, "stream":false}')
-echo
-echo payload: "$(echo "$payload")"
-echo
+# echo
+# echo payload: "$(echo "$payload")"
+echo Generating...
 response=$(curl -s --max-time 60 "${base_url%/}/chat/completions" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer $auth_key" \
 	-d "$payload")
-echo rsp: "$(echo "$response" | jq)"
-echo
-commit_message=$(echo "$response" | grep -o '"content":"[^"]*"' | sed 's/"content":"//;s/"$//' | head -1)
+# echo rsp: "$(echo "$response" | jq)"
+# echo
+commit_message=$(echo "$response" | jq '.choices.[0].message.content')
 
 if [ -z "$commit_message" ]; then
 	echo "Failed to generate commit message"
@@ -55,5 +55,6 @@ if [ -z "$commit_message" ]; then
 	exit 1
 fi
 
-echo "Generated commit message: $commit_message"
+echo "Generated commit message:
+$commit_message"
 git commit -m "$commit_message"
