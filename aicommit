@@ -23,7 +23,7 @@ fi
 
 if [ "$(echo "$diff_output" | wc -c)" -gt $MAXSIZE ]; then
 	diff_output=$(echo "$diff_output" | head -c $MAXSIZE)
-	echo "Warning: diff truncated to 10000 bytes"
+	echo "Warning: diff truncated to 5000 bytes"
 fi
 
 prompt="

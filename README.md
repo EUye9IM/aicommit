@@ -8,7 +8,7 @@
 
 ```bash
 # ~/.zshrc 或 ~/.bashrc
-source /path/to/aicommit.sh
+source /path/to/aicommit
 ```
 
 2. 设置环境变量：
@@ -34,7 +34,7 @@ aicommit
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `LLM_BASE_URL` | API 地址 | `http://localhost:11434/v1` |
+| `LLM_BASE_URL` | API 地址 | `http://localhost:1234/v1` |
 | `LLM_AUTH_KEY` | API Key | 空 |
 | `LLM_MODEL` | 模型名称 | `gpt-3.5-turbo` |
 
@@ -52,4 +52,5 @@ export LLM_MODEL="llama3"
 
 - `curl`
 - `git`
-- `grep`, `sed`（系统自带）
+- `jq`（用于 JSON 构造）
+- `wc`, `head`（系统自带）
