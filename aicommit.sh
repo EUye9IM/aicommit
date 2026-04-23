@@ -7,17 +7,7 @@ set -f
 
 MAXSIZE=5000
 MAXTIME=300
-
-echo "=== LLM Configuration ==="
-echo "Base URL: $base_url"
-echo "Model: $model"
-if [ -n "$auth_key" ]; then
-	echo "API Key: ${auth_key:0:10}..." # Show only first 10 chars for security
-else
-	echo "API Key: (not set)"
-fi
-echo "========================="
-echo ""
+API=response_stream
 
 diff_output="$(git diff --cached 2>/dev/null)"
 status_output="$(git status --short)"
@@ -55,35 +45,36 @@ ${diff_output}
 \`\`\`
 "
 
-payload=$(jq -n -c \
-	--arg model "$model" \
-	--arg prompt "$prompt" \
-	'{model: $model, input: [{role: "user", content: $prompt}], reasoning: {effort: "high"}}')
+echo "=== LLM Configuration ==="
+echo "Base URL: $base_url"
+echo "Model: $model"
+if [ -n "$auth_key" ]; then
+	echo "API Key: ${auth_key:0:10}..." # Show only first 10 chars for security
+else
+	echo "API Key: (not set)"
+fi
+echo "API: $API"
+echo "========================="
+echo ""
 
 echo Generating...
 commit_message=""
-# while IFS= read -r line; do
-# 	if [[ "$line" == data:* ]]; then
-# 		data="${line#data: }"
-# 		if [[ "$data" != "[DONE]" ]]; then
-# 			type=$(echo "$data" | jq -r '.type // empty' 2>/dev/null)
-# 			if [[ "$type" == "response.output_text.delta" ]]; then
-# 				delta=$(echo "$data" | jq -r '.delta // empty' 2>/dev/null)
-# 				if [ -n "$delta" ]; then
-# 					printf "%s" "$delta"
-# 				fi
-# 			fi
-# 		fi
-# 	fi
-# done <<(
-curl -s --max-time $MAXTIME "${base_url%/}/responses" \
-	-H "Content-Type: application/json" \
-	-H "Authorization: Bearer $auth_key" \
-	-d "$payload"
-
-if [ -z "$commit_message" ]; then
-	echo "Failed to generate commit message"
-	exit 1
-fi
+case "$API" in
+response_stream)
+	payload=$(jq -n -c \
+		--arg model "$model" \
+		--arg prompt "$prompt" \
+		'{model: $model, input: [{role: "user", content: $prompt}],
+	reasoning: {effort: "high"},store:false,temperature:0}')
+	while IFS= read -r line; do
+		echo $line
+	done < <(curl -s -N --max-time $MAXTIME "${base_url%/}/responses" \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $auth_key" \
+		-d "$payload")
+	;;
+*)
+	;;
+esac
 
 # git commit -m "$commit_message"
