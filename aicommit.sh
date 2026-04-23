@@ -59,23 +59,31 @@ payload=$(jq -n -c \
 	--arg model "$model" \
 	--arg prompt "$prompt" \
 	'{model: $model, input: [{role: "user", content: $prompt}], reasoning: {effort: "high"}}')
-# echo
-# echo payload: "$(echo "$payload")"
+
 echo Generating...
-response=$(curl -s --max-time $MAXTIME "${base_url%/}/responses" \
+commit_message=""
+# while IFS= read -r line; do
+# 	if [[ "$line" == data:* ]]; then
+# 		data="${line#data: }"
+# 		if [[ "$data" != "[DONE]" ]]; then
+# 			type=$(echo "$data" | jq -r '.type // empty' 2>/dev/null)
+# 			if [[ "$type" == "response.output_text.delta" ]]; then
+# 				delta=$(echo "$data" | jq -r '.delta // empty' 2>/dev/null)
+# 				if [ -n "$delta" ]; then
+# 					printf "%s" "$delta"
+# 				fi
+# 			fi
+# 		fi
+# 	fi
+# done <<(
+curl -s --max-time $MAXTIME "${base_url%/}/responses" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer $auth_key" \
-	-d "$payload")
-# echo rsp: "$(echo "$response" | jq)"
-# echo
-commit_message="$(echo "$response" | jq -r '.output[0].content[0].text')"
+	-d "$payload"
 
 if [ -z "$commit_message" ]; then
 	echo "Failed to generate commit message"
-	echo "Response: $response"
 	exit 1
 fi
 
-echo "Generated commit message:
-$commit_message"
-git commit -m "$commit_message"
+# git commit -m "$commit_message"
