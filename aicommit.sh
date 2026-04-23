@@ -58,17 +58,17 @@ ${diff_output}
 payload=$(jq -n -c \
 	--arg model "$model" \
 	--arg prompt "$prompt" \
-	'{model: $model, messages: [{role: "user", content: $prompt}], temperature: 0, "stream":false}')
+	'{model: $model, input: [{role: "user", content: $prompt}], reasoning: {effort: "high"}}')
 # echo
 # echo payload: "$(echo "$payload")"
 echo Generating...
-response=$(curl -s --max-time $MAXTIME "${base_url%/}/chat/completions" \
+response=$(curl -s --max-time $MAXTIME "${base_url%/}/responses" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer $auth_key" \
 	-d "$payload")
 # echo rsp: "$(echo "$response" | jq)"
 # echo
-commit_message="$(echo "$response" | jq '.choices.[0].message.content')"
+commit_message="$(echo "$response" | jq -r '.output[0].content[0].text')"
 
 if [ -z "$commit_message" ]; then
 	echo "Failed to generate commit message"
