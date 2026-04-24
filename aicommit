@@ -15,20 +15,20 @@ sorted_files=$(git diff --cached --numstat | awk '{print $1+$2, $3}' | sort -n |
 
 diff_output=""
 while IFS= read -r file; do
-    [ -z "$file" ] && continue
-    
-    # 检查添加此文件是否会超限
-    file_diff=$(git diff --cached -- "$file")
-    current_len=${#diff_output}
-    new_len=$((current_len + ${#file_diff}))
-    
-    if [ $new_len -gt $MAXSIZE ]; then
-        echo -e "\033[93mWarning: diff truncated to $MAXSIZE bytes (reached limit while adding files)\033[0m"
-        break
-    fi
-    
-    diff_output+="$file_diff"$'\n'
-done <<< "$sorted_files"
+	[ -z "$file" ] && continue
+
+	# 检查添加此文件是否会超限
+	file_diff=$(git diff --cached -- "$file")
+	current_len=${#diff_output}
+	new_len=$((current_len + ${#file_diff}))
+
+	if [ $new_len -gt $MAXSIZE ]; then
+		echo -e "\033[93mWarning: diff truncated to $MAXSIZE bytes (reached limit while adding files)\033[0m"
+		break
+	fi
+
+	diff_output+="$file_diff"$'\n'
+done <<<"$sorted_files"
 
 if [ -z "$diff_output" ]; then
 	echo "No changes to commit"
@@ -81,6 +81,7 @@ response_stream)
 		--arg prompt "$prompt" \
 		'{model: $model, input: [{role: "user", content: $prompt}],
 	reasoning: {effort: "high"},store:false,temperature:0,stream:true}')
+	# echo payload "$payload"
 	thinking=0
 	while IFS= read -r line; do
 		case "$line" in
@@ -106,7 +107,7 @@ response_stream)
 				event_name="${current_event}" # 默认事件名为 "message"
 				# 根据 event 类型处理 JSON 字符串（$data_accumulator）
 				case "$event_name" in
-				response.reasoning_text.delta)
+				response.reasoning_text.delta | response.reasoning_summary_text.delta)
 					if [[ $thinking -eq 0 ]]; then
 						thinking=1
 						echo -e "\033[90m"
@@ -132,10 +133,13 @@ response_stream)
 					response.content_part.done | \
 					response.output_item.done | \
 					response.reasoning_text.done | \
-					response.completed)
+					response.completed | \
+					response.reasoning_summary_text.done)
 					;;
 				*)
-					# echo "未处理的事件（$event_name）：$data_accumulator"
+					# echo "未处理的事件（$event_name）"
+					# echo "$data_accumulator"
+					# echo
 					;;
 				esac
 				# 重置当前事件状态
