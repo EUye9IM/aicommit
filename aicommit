@@ -8,6 +8,7 @@ set -f
 MAXSIZE=5000
 MAXTIME=300
 API=response_stream
+EFFORT=low
 
 status_output="$(git status --short)"
 
@@ -79,11 +80,13 @@ response_stream)
 	payload=$(jq -n -c \
 		--arg model "$model" \
 		--arg prompt "$prompt" \
+		--arg effort "$EFFORT" \
 		'{model: $model, input: [{role: "user", content: $prompt}],
-	reasoning: {effort: "high"},store:false,temperature:0,stream:true}')
+	reasoning: {effort: $effort},store:false,temperature:0,stream:true}')
 	# echo payload "$payload"
 	thinking=0
 	while IFS= read -r line; do
+		# echo "$line"
 		case "$line" in
 		event:*)
 			# 提取事件类型，去除 prefix 和前后空白
@@ -125,6 +128,10 @@ response_stream)
 					commit_message="$(
 						echo "$data_accumulator" | jq -rj '.text'
 					)"
+					;;
+				error)
+					echo -e "\033[31merror: $data_accumulator\033[0m"
+					exit 1
 					;;
 				response.created | \
 					response.in_progress | \

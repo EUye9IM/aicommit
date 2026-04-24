@@ -1,48 +1,43 @@
-# OpenCode Instructions for AI Commit Tool
+# AI Commit Tool
 
-## Architecture Overview
+Single-entrypoint bash script (`aicommit`) — no tests, CI, or build. Sourced in shell profile, not executed directly.
 
-Simple bash script project with a single entrypoint: **`aicommit.sh`**. No tests, CI/CD, or build process.
-
-## Essential Commands
+## Commands
 
 ```bash
-# Run the tool (must stage changes first or it falls back to unstaged)
+# Stage and commit
 git add <files>
 aicommit
 
-# Manual verification
-bash aicommit.sh
+# Manual run
+bash aicommit
 ```
 
-## Environment Configuration
+## Architecture
 
-All variables have defaults - override them in your shell profile:
+- **Diff strategy**: Reads `git diff --cached` only, sorted by ascending diff size. Exits with "No changes to commit" if empty — **no fallback to unstaged diff**.
+- **Diff truncation**: Hard limit of 5000 bytes. Files are added incrementally; once the cumulative diff exceeds the limit, remaining files are skipped. A secondary `head -c 5000` truncation acts as a safety net.
+- **API**: Uses OpenAI Responses API (`POST /responses`) with SSE streaming. Payload constructed inline via `jq`. `case "$API" in response_stream)` is the only code path (default hardcoded to `response_stream`).
+- **Commit auto-executes**: `git commit -m "$commit_message"` is active on line 165 — **not commented out**.
+- **Prompt**: Chinese commit message with a title + optional body list. No markdown formatting symbols allowed in output.
+- **Parameters**: `temperature: 0`, `reasoning.effort: "high"`, `store: false`, `stream: true`.
+- `set -f` at top disables glob expansion (relevant if filenames contain glob chars).
 
-- `LLM_BASE_URL`: OpenAI-compatible API endpoint (default: `http://localhost:1234/v1`)
-- `LLM_AUTH_KEY`: API key for authentication (default: empty)
-- `LLM_MODEL`: Model name (default: `gpt-3.5-turbo`)
+## Env Config
 
-Example for Ollama local:
-```bash
-export LLM_BASE_URL="http://localhost:11434/v1"
-export LLM_AUTH_KEY=""
-export LLM_MODEL="llama3"
-```
-
-## Execution Flow
-
-1. **Fallthrough diff strategy**: Checks `git diff --cached` first, then falls back to `git diff` if no staged changes
-2. **Diff truncation**: Automatically truncates diffs to 10000 bytes with a warning
-3. **API parameters**: Temperature is hardcoded to `0.2` for consistent output
-4. **Commit generation**: Generates Chinese commit messages in format `类型：描述` (type: description)
-5. **Dry-run mode**: The final `git commit -m` command is **commented out** (line 45) - must manually uncomment for auto-commit
+| Variable | Default | Note |
+|---|---|---|
+| `LLM_BASE_URL` | `http://localhost:1234/v1` | Path `/responses` is appended automatically |
+| `LLM_AUTH_KEY` | (empty) | |
+| `LLM_MODEL` | `gpt-3.5-turbo` | |
 
 ## Dependencies
 
-- `git`, `curl`, `jq` (for JSON construction), `grep`, `sed`
+`curl`, `jq`, `git`, `wc`, `head` — all standard.
 
-## Code Generation Notes
+## Gotchas
 
-- `payload.json`: This file appears to be an example/payload template but **is not used by the script**. The script constructs its own JSON payload using `jq` inline.
-- When modifying the API call, edit the `payload=$(jq -n ...)` construction directly in `aicommit.sh`
+- The script sources (via `.` or `source`) into the shell — it must produce output on stdout and NOT run commands that break the interactive shell.
+- `curl` timeout: `MAXTIME=300` (5 minutes).
+- Reasoning tokens are dimmed (`\033[90m`), final output is normal — the agent must NOT strip ANSI codes from the commit message variable.
+- The script is in the repo root as `aicommit` (no `.sh` extension).

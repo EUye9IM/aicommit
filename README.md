@@ -22,11 +22,8 @@ export LLM_MODEL="gpt-3.5-turbo" # 使用的模型
 ## 使用
 
 ```bash
-# 暂存文件后执行
-git add .
-aicommit
-
-# 或直接运行（会自动使用 git diff）
+# 必须先暂存文件
+git add <files>
 aicommit
 ```
 
