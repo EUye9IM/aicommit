@@ -7,7 +7,7 @@ set -f
 
 MAXSIZE=5000
 MAXTIME=300
-API=response_stream
+API=${LLM_API:-response_stream}
 EFFORT=low
 
 status_output="$(git status --short)"
@@ -162,6 +162,45 @@ response_stream)
 		-H "Content-Type: application/json" \
 		-H "Authorization: Bearer $auth_key" \
 		-d "$payload")
+	;;
+chat_stream)
+	payload=$(jq -n -c \
+		--arg model "$model" \
+		--arg prompt "$prompt" \
+		'{model: $model, messages: [{role: "user", content: $prompt}], temperature: 0, stream: true}')
+
+	thinking=0
+	while IFS= read -r line; do
+		case "$line" in
+		data:*)
+			data_line="${line#data:}"
+			data_line="${data_line#"${data_line%%[![:space:]]*}"}"
+			[ "$data_line" = "[DONE]" ] && break
+
+			r=$(echo "$data_line" | jq -rj '.choices[0].delta.reasoning_content // empty' 2>/dev/null; printf '\001e')
+			r="${r%$'\001e'}"
+			c=$(echo "$data_line" | jq -rj '.choices[0].delta.content // empty' 2>/dev/null; printf '\001e')
+			c="${c%$'\001e'}"
+
+			if [ -n "$r" ]; then
+				[ $thinking -eq 0 ] && thinking=1 && echo -ne "\033[90m"
+				echo -n "$r"
+			fi
+			if [ -n "$c" ]; then
+				[ $thinking -eq 1 ] && thinking=0 && echo -e "\033[0m"
+				commit_message+="$c"
+				echo -n "$c"
+			fi
+			;;
+		esac
+	done < <(curl -s -N --max-time $MAXTIME "${base_url%/}/chat/completions" \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $auth_key" \
+		-d "$payload")
+
+	if [ $thinking -eq 1 ]; then
+		echo -ne "\033[0m"
+	fi
 	;;
 *)
 	;;
