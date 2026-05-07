@@ -41,15 +41,25 @@ if [ "$(echo "$diff_output" | wc -c)" -gt $MAXSIZE ]; then
 	diff_output=$(echo "$diff_output" | head -c $MAXSIZE)
 fi
 
-prompt="
-根据以下 git status 和 git diff 输出，中文生成一个简洁的 git commit message。
-要求：
-	1. 使用中文。
-	2. 有一个简短的标题和一些内容
-	3. 标题和内容之间存在一个空行
-	4. 内容可以使用列表形式大致总结修改点，如果修改比较简单也可以只有标题没有内容
-	5. 移除所有格式符号，不要携带'*','**','\`'等符号
+system_prompt="
+根据以下 git status 和 git diff 输出，使用 Conventional Commits 规范生成 commit message。
 
+格式: <type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+
+要求:
+1. type 为必选，scope 可选。type/scope/BREAKING CHANGE/Closes/Refs 等关键词用英文，description/body/footer 用中文
+2. type 可选值: feat(新功能), fix(修复), docs(文档), style(格式), refactor(重构), perf(性能), test(测试), build(构建), ci(CI), chore(维护), revert(回滚)
+3. description 用中文祈使句，不超过72字符（如\"添加搜索功能\"而非\"添加了搜索功能\"）
+4. 如有需要，空行后添加 body，可用列表总结修改点
+5. BREAKING CHANGE 在 type/scope 后加 !，或在 footer 中用 BREAKING CHANGE: 说明
+6. 移除所有格式符号，不要携带 '*', '**', '\`' 等符号
+"
+
+user_prompt="
 status:
 \`\`\`
 ${status_output}
@@ -79,9 +89,10 @@ case "$API" in
 response_stream)
 	payload=$(jq -n -c \
 		--arg model "$model" \
-		--arg prompt "$prompt" \
+		--arg inst "$system_prompt" \
+		--arg prompt "$user_prompt" \
 		--arg effort "$EFFORT" \
-		'{model: $model, input: [{role: "user", content: $prompt}],
+		'{model: $model, instructions: $inst, input: [{role: "user", content: $prompt}],
 	reasoning: {effort: $effort},store:false,temperature:0,stream:true}')
 	# echo payload "$payload"
 	thinking=0
@@ -166,8 +177,9 @@ response_stream)
 chat_stream)
 	payload=$(jq -n -c \
 		--arg model "$model" \
-		--arg prompt "$prompt" \
-		'{model: $model, messages: [{role: "user", content: $prompt}], temperature: 0, stream: true}')
+		--arg sys "$system_prompt" \
+		--arg prompt "$user_prompt" \
+		'{model: $model, messages: [{role: "system", content: $sys}, {role: "user", content: $prompt}], temperature: 0, stream: true}')
 
 	thinking=0
 	while IFS= read -r line; do
@@ -177,9 +189,15 @@ chat_stream)
 			data_line="${data_line#"${data_line%%[![:space:]]*}"}"
 			[ "$data_line" = "[DONE]" ] && break
 
-			r=$(echo "$data_line" | jq -rj '.choices[0].delta.reasoning_content // empty' 2>/dev/null; printf '\001e')
+			r=$(
+				echo "$data_line" | jq -rj '.choices[0].delta.reasoning_content // empty' 2>/dev/null
+				printf '\001e'
+			)
 			r="${r%$'\001e'}"
-			c=$(echo "$data_line" | jq -rj '.choices[0].delta.content // empty' 2>/dev/null; printf '\001e')
+			c=$(
+				echo "$data_line" | jq -rj '.choices[0].delta.content // empty' 2>/dev/null
+				printf '\001e'
+			)
 			c="${c%$'\001e'}"
 
 			if [ -n "$r" ]; then
