@@ -56,7 +56,7 @@ system_prompt="
 3. description 用中文祈使句，不超过72字符（如\"添加搜索功能\"而非\"添加了搜索功能\"）
 4. 如有需要，空行后添加 body，可用列表总结修改点
 5. BREAKING CHANGE 在 type/scope 后加 !，或在 footer 中用 BREAKING CHANGE: 说明
-6. 移除所有格式符号，不要携带 '*', '**', '\`' 等符号
+6. 移除所有格式符号，直接输出文本。不要携带 '*', '**', '\`', '\`\`\`' 等符号
 "
 
 user_prompt="
